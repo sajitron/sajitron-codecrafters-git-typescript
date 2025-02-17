@@ -1,13 +1,19 @@
 import * as fs from 'fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import crypto from 'node:crypto';
+import {
+    createWriteStream,
+} from 'node:fs';
+import { pipeline, Readable } from 'node:stream'
 
 const args = process.argv.slice(2);
 const command = args[0];
 
 enum Commands {
     Init = "init",
-    CatFile = "cat-file"
+    CatFile = "cat-file",
+    HashObject = "hash-object"
 }
 
 switch (command) {
@@ -24,9 +30,9 @@ switch (command) {
         break;
 
     case Commands.CatFile:
-        const [, flag, blob] = args;
+        const [, catFlag, blob] = args;
 
-        if (flag !== '-p' || !blob) {
+        if (catFlag !== '-p' || !blob) {
             throw new Error(`Incomplete cmd; Pass a flag or blob key`);
         }
         const objectDir = blob.slice(0, 2);
@@ -35,8 +41,36 @@ switch (command) {
         const blobData = fs.readFileSync(path.resolve('.git', 'objects', objectDir, blobString))
         const decompressed = zlib.inflateSync(new Uint8Array(blobData)).toString();
         // strip out 'blob' and number of chars and end of line
-        const content = decompressed.replace(/^blob \d+\0/, '').trim().replace(/\n|\r/g, "");
+        const content = decompressed.replace(/^blob \d+\0/, '').trim();
         process.stdout.write(content);
+        break;
+
+    case Commands.HashObject:
+        const [, hashFlag, file] = args;
+        if (hashFlag !== '-w' || !file) {
+            throw new Error(`Incomplete cmd; Pass a flag or file path`);
+        }
+
+        const deflate = zlib.createDeflate();
+
+        const fileContents = fs.readFileSync(path.resolve(file), 'utf-8');
+        const blobHeader = `blob ${fileContents.length}\0`;
+        const objectContent = `${blobHeader}${fileContents}\n`.trim()
+        const sha = crypto.createHash('sha1').update(objectContent).digest('hex');
+        const newObjDir = sha.slice(0, 2);
+        const objFileName = sha.slice(2);
+        // Create directory if it doesn't exist
+        const objectPath = path.resolve('.git', 'objects', newObjDir);
+        fs.mkdirSync(objectPath, { recursive: true });
+        // Use Readable.from() to create a stream from the string
+        const source = Readable.from(Buffer.from(objectContent));
+        // compress data
+        const destination = createWriteStream(path.resolve(objectPath, objFileName))
+
+        pipeline(source, deflate, destination, (err) => {
+            if (err) throw new Error(`An error occurred: ${err}`);
+            process.stdout.write(sha);
+        })
         break;
 
     default:
