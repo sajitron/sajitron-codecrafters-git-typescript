@@ -40,6 +40,3 @@ switch (command) {
     default:
         throw new Error(`Unknown command ${command}`);
 }
-
-
-//TODO: implement full tree response

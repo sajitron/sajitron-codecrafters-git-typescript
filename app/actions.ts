@@ -14,7 +14,7 @@ export class GitActions {
     this.args = args;
   }
 
-  public initGit() {
+  public initGit(): void {
     // Uncomment this block to pass the first stage
     fs.mkdirSync(".git", { recursive: true });
     fs.mkdirSync(".git/objects", { recursive: true });
@@ -23,7 +23,7 @@ export class GitActions {
     console.log("Initialized git directory");
   }
 
-  public catFile() {
+  public catFile(): void {
     const [, catFlag, blob] = this.args;
 
     if (catFlag !== '-p' || !blob) {
@@ -43,7 +43,7 @@ export class GitActions {
     })
   }
 
-  public hashObject() {
+  public hashObject(): void {
     const [, hashFlag, file] = this.args;
     if (hashFlag !== '-w' || !file) {
       throw new Error(`Incomplete cmd; Pass a flag or file path`);
@@ -70,7 +70,8 @@ export class GitActions {
     })
   }
 
-  public listTree() {
+  //TODO: implement full tree response
+  public listTree(): void {
     const [, listFlag, listHash] = this.args;
     if ((listFlag && listFlag !== '--name-only') || !listHash) {
       throw new Error(`Invalid command arguments`);
